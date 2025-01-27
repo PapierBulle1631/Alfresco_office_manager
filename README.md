@@ -38,24 +38,16 @@ Ce projet est un script PowerShell conçu pour gérer et convertir des anciens f
 
 ## Utilisation
 
-1. **Exécution du script**
-   - Ouvrir PowerShell avec les droits d'administration.
-   - Naviguer jusqu'au répertoire contenant le script.
-   - Exécuter le script en tapant :
-     ```powershell
-     .\office_manager_alfresco.ps1
-     ```
-
-2. **Choix des dossiers**
+1. **Choix des dossiers**
    - Utiliser les boutons "Parcourir" pour sélectionner :
      - Le dossier source à scanner.
      - Le dossier de destination pour copier les fichiers et générer les rapports.
 
-3. **Options supplémentaires**
+2. **Options supplémentaires**
    - **Conversion des fichiers** : Activer la case à cocher pour lancer la conversion et générer le rapport E2.
    - **Nettoyage des fichiers originaux** : Disponible uniquement après la conversion.
 
-4. **Rapports générés**
+3. **Rapports générés**
    - `Liste_fichiers_e1.xlsx` : Liste des fichiers originaux copiés.
    - `Liste_fichiers_e2.xlsx` : Liste des fichiers convertis avec leurs nouveaux noms et chemins.
 
