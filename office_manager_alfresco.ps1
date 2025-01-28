@@ -1,11 +1,9 @@
-﻿Add-Type -AssemblyName 'System.Windows.Forms'
+Add-Type -AssemblyName 'System.Windows.Forms'
 
 # En cas de bseoin ces variables donnent la résolution de l'écran
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen
 $width = $screen.Bounds.Width
 $height = $screen.Bounds.Height
-
-
 
 
 
@@ -19,6 +17,9 @@ $form = New-Object System.Windows.Forms.Form
 $form.Text = "Scanner d'ancienne version office"
 $form.Size = New-Object System.Drawing.Size(600, 400)
 $form.MinimumSize = New-Object System.Drawing.Size(600, 400)
+
+
+
 
 # Label pour source
 $sourceLabel = New-Object System.Windows.Forms.Label
@@ -66,6 +67,10 @@ $destinationButton.Width = 100
 $destinationButton.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($destinationButton)
 
+
+
+
+
 # Zone de texte des logs
 $logTextBox = New-Object System.Windows.Forms.TextBox
 $logTextBox.Location = New-Object System.Drawing.Point(10, 100)
@@ -77,10 +82,14 @@ $logTextBox.ReadOnly = $true
 $logTextBox.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
 $form.Controls.Add($logTextBox)
 
+
+
+
+
 # Case à cocher pour la conversion
 $conversionCheckbox = New-Object System.Windows.Forms.CheckBox
 $conversionCheckbox.Text = "Convertir les fichiers"
-$conversionCheckbox.Location = New-Object System.Drawing.Point(70, 315)
+$conversionCheckbox.Location = New-Object System.Drawing.Point(20, 315)
 $conversionCheckbox.Width = 140
 $conversionCheckbox.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left
 $form.Controls.Add($conversionCheckbox)
@@ -88,24 +97,33 @@ $form.Controls.Add($conversionCheckbox)
 # Bouton de lancement
 $processButton = New-Object System.Windows.Forms.Button
 $processButton.Text = 'Lancer le programme'
-$processButton.Location = New-Object System.Drawing.Point(210, 315)
+$processButton.Location = New-Object System.Drawing.Point(160, 315)
 $graphics = [System.Drawing.Graphics]::FromImage([System.Drawing.Bitmap]::new(1, 1))
 $textSize = $graphics.MeasureString($processButton.Text, $processButton.Font)
-$processButton.Width = [math]::Ceiling($textSize.Width) + 10 # Ajouter un peu de padding
+$processButton.Width = [math]::Ceiling($textSize.Width) + 10
 $processButton.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($processButton)
 
 # Bouton de suppression
 $deleteButton = New-Object System.Windows.Forms.Button
 $deleteButton.Text = 'Supprimer les fichiers'
-$deleteButton.Location = New-Object System.Drawing.Point(350, 315)
+$deleteButton.Location = New-Object System.Drawing.Point(290, 315)
 $graphics = [System.Drawing.Graphics]::FromImage([System.Drawing.Bitmap]::new(1, 1))
 $textSize = $graphics.MeasureString($deleteButton.Text, $deleteButton.Font)
-$deleteButton.Width = [math]::Ceiling($textSize.Width) + 10 # Ajouter un peu de padding
+$deleteButton.Width = [math]::Ceiling($textSize.Width) + 10
 $deleteButton.Enabled = $false
 $deleteButton.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($deleteButton)
 
+
+# Bouton d'enregistrement des lgos
+$saveLogButton = New-Object System.Windows.Forms.Button
+$saveLogButton.Text = "Enregistrer les logs"
+$saveLogButton.Location = New-Object System.Drawing.Point(420, 315) 
+$textSize = $graphics.MeasureString($deleteButton.Text, $saveLogButton.Font)
+$saveLogButton.Width = [math]::Ceiling($textSize.Width) + 10 
+$saveLogButton.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
+$form.Controls.Add($saveLogButton)
 
 
 
@@ -147,6 +165,28 @@ $destinationButton.Add_Click({
     }
 })
 
+
+# Fonction pour enregistrer les logs
+$saveLogButton.Add_Click({
+    # Ouvre une fenêtre pour sélectinoner l'emplacement des logs et le nom du doc
+    $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+    $saveFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
+    $saveFileDialog.Title = "Enregistrer un fichier de logs"
+    $saveFileDialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+    
+    if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $logFilePath = $saveFileDialog.FileName
+        
+        # Essaie d'écrrie le contenu de log text box dans le fichier et renvoie le résultat de l'opération
+        try {
+            $logText = $logTextBox.Text
+            Set-Content -Path $logFilePath -Value $logText -Force
+            [System.Windows.Forms.MessageBox]::Show("Les logs ont bien été sauvegardés !", "Enregistrement correct", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Erreur d'enregistrement des logs : $($_.Exception.Message)", "Erreur", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    }
+})
 
 
 
