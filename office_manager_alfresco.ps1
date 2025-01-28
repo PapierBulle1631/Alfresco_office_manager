@@ -72,13 +72,13 @@ $form.Controls.Add($destinationButton)
 
 
 # Zone de texte des logs
-$logTextBox = New-Object System.Windows.Forms.TextBox
+$logTextBox = New-Object System.Windows.Forms.RichTextBox
 $logTextBox.Location = New-Object System.Drawing.Point(10, 100)
-$logTextBox.Width = 550
-$logTextBox.Height = 200
-$logTextBox.Multiline = $true
-$logTextBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+$logTextBox.Size = New-Object System.Drawing.Size(550, 200)
 $logTextBox.ReadOnly = $true
+$logTextBox.Multiline = $true
+$form.Controls.Add($logTextBox)
+$logTextBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
 $logTextBox.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
 $form.Controls.Add($logTextBox)
 
@@ -146,9 +146,9 @@ $sourceButton.Add_Click({
     
     if ($folderDialog.ShowDialog() -eq 'OK') {
         $sourceTextBox.Text = $folderDialog.SelectedPath
-        $logTextBox.AppendText("Dossier sélectionné pour la source : $($folderDialog.SelectedPath)`r`n")
+        Add-Log -Message "Dossier sélectionné pour la source : $($folderDialog.SelectedPath)`r`n" 
     } else {
-        $logTextBox.AppendText("Aucun dossier source sélectionné.`r`n")
+        Add-Log -Message "Aucun dossier source sélectionné.`r`n" -Color "Red"
     }
 })
 
@@ -159,9 +159,9 @@ $destinationButton.Add_Click({
 
     if ($folderDialog.ShowDialog() -eq 'OK') {
         $destinationTextBox.Text = $folderDialog.SelectedPath
-        $logTextBox.AppendText("Dossier sélectionné pour le rapport : $($folderDialog.SelectedPath)`r`n")
+        Add-Log -Message "Dossier sélectionné pour le rapport : $($folderDialog.SelectedPath)`r`n"
     } else {
-        $logTextBox.AppendText("Aucun dossier destination sélectionné.`r`n")
+        Add-Log -Message "Aucun dossier destination sélectionné.`r`n" -Color "Red"
     }
 })
 
@@ -189,7 +189,18 @@ $saveLogButton.Add_Click({
 })
 
 
-
+# Fonction pour ajouter les logs en couleur (hors runspace)
+function Add-Log {
+    param (
+        [string]$Message,
+        [string]$Color = "Black" # Couleur par défaut
+    )
+    $logTextBox.SelectionStart = $logTextBox.TextLength
+    $logTextBox.SelectionLength = 0
+    $logTextBox.SelectionColor = [System.Drawing.Color]::FromName($Color)
+    $logTextBox.AppendText("$Message")
+    $logTextBox.SelectionColor = [System.Drawing.Color]::Black # Reset la couleur
+}
 
 
 ################################################################################################
@@ -211,28 +222,28 @@ $processButton.Add_Click({
 
     # Gestion d'erreur en cas de chemin non valide ou non existant
     if ([String]::IsNullOrWhiteSpace($sourcePath)) {
-        $logTextBox.AppendText("Erreur : Le dossier source est vide. Veuillez sélectionner un chemin valide pour continuer`r`n")
+        Add-Log -Message "Erreur : Le dossier source est vide. Veuillez sélectionner un chemin valide pour continuer`r`n" -Color "Red"
         return
     }
 
     if ([String]::IsNullOrWhiteSpace($destinationPath)) {
-        $logTextBox.AppendText("Erreur : Le dossier de destination est vide. Veuillez sélectionner un chemin valide pour continuer`r`n")
+        Add-Log -Message "Erreur : Le dossier de destination est vide. Veuillez sélectionner un chemin valide pour continuer`r`n" -Color "Red"
         return
     }
 
     if (-not (Test-Path $sourcePath)) {
-        $logTextBox.AppendText("Erreur : Le dossier source spécifié n'existe pas.`r`n")
+        Add-Log -Message "Erreur : Le dossier source spécifié n'existe pas.`r`n" -Color "Red"
         return
     }
 
     if (-not (Test-Path $destinationPath)) {
-        $logTextBox.AppendText("Le dossier destination spécifié n'existe pas. Création du dossier...`r`n`r`n")
+        Add-Log -Message "Le dossier destination spécifié n'existe pas. Création du dossier...`r`n`r`n" -Color "Yellow"
         try {
             New-Item -Path $destinationPath -ItemType Directory
-            $logTextBox.AppendText("Le dossier de destination a bien été créé`r`n")
+            Add-Log -Message "Le dossier de destination a bien été créé`r`n"
         }
         catch{
-            $logTextBox.AppendText("Erreur : le dossier de destination n'a pas été créé. Veuillez réessayer.")
+            Add-Log -Message "Erreur : le dossier de destination n'a pas été créé. Veuillez réessayer.`r`n" -Color "Red"
         }
 
     }
@@ -269,9 +280,30 @@ $processButton.Add_Click({
 
 
 
-    # Creation d'un script powershell qui tourne en arrière-plan en même temps
+    # Creation d'un script qui tourne en arrière-plan en même temps
+
+    ###################################################################
+    # A noter : il s'agit d'un thread différent donc tout lien entre  #
+    #   la fenêtre principale et ce programme (comme les logs par     #
+    #   exemple) doit être importé en utilisant les arguments ou en   #
+    #   étant définit comme variable globale                          #
+    ###################################################################
+
     $runspaceScriptBlock = {
         param($sourcePath, $destinationPath, $logTextBox, $form, $deleteButton, $convertFiles)
+
+        # Fonction pour ajouter les logs en couleur (dans le thread du runspace)
+        function Add-Log {
+            param (
+                [string]$Message,
+                [string]$Color = "Black" # Couleur par défaut
+            )
+            $logTextBox.SelectionStart = $logTextBox.TextLength
+            $logTextBox.SelectionLength = 0
+            $logTextBox.SelectionColor = [System.Drawing.Color]::FromName($Color)
+            $logTextBox.AppendText("$Message")
+            $logTextBox.SelectionColor = [System.Drawing.Color]::Black # Reset la couleur
+        }
 
 
         $listeDesFichiers = @()
@@ -315,7 +347,7 @@ $processButton.Add_Click({
 
             # On affiche l'action en cours : la copie d'un fichier
             $logTextBox.Invoke([Action]{
-                    $logTextBox.AppendText("Copie du fichier $($_.FullName).`r`n")
+                    Add-Log -Message "Copie du fichier $($_.FullName).`r`n" -Color "Green"
             })
                                 
         
@@ -327,7 +359,7 @@ $processButton.Add_Click({
         
         $listeDesFichiers | Export-Excel -Path $outputCsv -WorksheetName "Feuille1" -AutoSize
         $logTextBox.Invoke([Action]{
-            $logTextBox.AppendText("`r`nCréation de la liste des fichiers E1 : $outputCsv`r`n")
+            Add-Log -Message "`r`nCréation de la liste des fichiers E1 : $outputCsv`r`n" -Color "Blue"
         })
 
 
@@ -345,15 +377,16 @@ $processButton.Add_Click({
         if ($convertFiles){
 
             $logTextBox.Invoke([Action]{
-                $logTextBox.AppendText("`r`n Délai de synchronisation des premiers fichiers...`r`n")
+                Add-Log -Message "`r`n Délai de synchronisation des premiers fichiers...`r`n"
                 Start-Sleep -Seconds 3
-                $logTextBox.AppendText("Début de la conversion des fichiers...`r`n")
+                Add-Log -Message "Début de la conversion des fichiers...`r`n"
             })
 
             $listeFichiersConvertis = @()
 
 
             Get-ChildItem -Path $destinationPath -Recurse -File | ForEach-Object {
+
                 # Fonction pour fermer tout processus office qui s'ouvrirait pendant la conversion
                 function CleanUp-OfficeProcesses {
                     $officeProcesses = Get-Process | Where-Object { $_.Name -in @("WINWORD", "EXCEL", "POWERPNT") }
@@ -362,14 +395,11 @@ $processButton.Add_Click({
                             try {
                                 # Force pour tuer les processus Offices
                                 Stop-Process -Name $_.Name -Force
-                                Write-Host "Arrêt du processus Ofiice pour : $($_.Name)"
                             }
                             catch {
-                                Write-Host "Erreur lors de l'arrêt du processus pour : $($_.Name)"
+                                Add-Log -Message "Erreur lors de l'arrêt du processus pour : $($_.Name)`r`n" -Color "Red"
                             }
                         }
-                    } else {
-                        Write-Host "Aucun processus Office n'est en cours d'éxécution."
                     }
                 }
 
@@ -395,7 +425,7 @@ $processButton.Add_Click({
 
                             # Affichage dans les logs
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Conversion terminée : $($newDocxFile)`r`n")
+                                Add-Log -Message "Conversion terminée : $($newDocxFile)`r`n" -Color "Green"
                             })
                             $listeFichiersConvertis += [PSCustomObject]@{Nm_Orig = $newDocxFile; Nm_Tmp=$tempName}
                         }
@@ -403,7 +433,7 @@ $processButton.Add_Click({
                         catch {
                             # Message d'erreur si la conversion écoue
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Erreur lors de la conversion de : $tempPath`r`n")
+                                Add-Log -Message "Erreur lors de la conversion de : $tempPath`r`n" -Color "Red"
                             })
                         }
                         finally {
@@ -433,14 +463,14 @@ $processButton.Add_Click({
 
                             # Affichage dans les logs
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Conversion terminée : $($newXlsxFile)`r`n")
+                                Add-Log -Message "Conversion terminée : $($newXlsxFile)`r`n" -Color "Green"
                             })
                             $listeFichiersConvertis += [PSCustomObject]@{Nm_Orig = $newXlsxFile; Nm_Tmp=$tempName}
                         }
                         catch {
                             # Message d'erreur si la conversion écoue
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Erreur lors de la conversion de : $tempPath`r`n")
+                                Add-Log -Message "Erreur lors de la conversion de : $tempPath`r`n" -Color "Red"
                             })
                         }
                         finally {
@@ -480,14 +510,14 @@ $processButton.Add_Click({
                             $presentation.SaveAs($newPptxFile, [Microsoft.Office.Interop.PowerPoint.PpSaveAsFileType]::ppSaveAsOpenXMLPresentation)
                             $presentation.Close()
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Conversion terminée : $($newPptxFile)`r`n")
+                                Add-Log -Message "Conversion terminée : $($newPptxFile)`r`n" -Color "Green"
                             })
                             $listeFichiersConvertis += [PSCustomObject]@{Nm_Orig = $newPptxFile; Nm_Tmp=$tempName}
                         }
                         catch {
                             # Message d'erreur si la conversion écoue
                             $logTextBox.Invoke([Action]{
-                                $logTextBox.AppendText("Erreur lors de la conversion de : $tempPath`r`n")
+                                Add-Log -Message "Erreur lors de la conversion de : $tempPath`r`n" -Color "Red"
                             })
                         }
                         finally {
@@ -507,7 +537,7 @@ $processButton.Add_Click({
             }
 
             $logTextBox.Invoke([Action]{
-                $logTextBox.AppendText("`r`nFin de la conversion des fichiers.`r`n")
+                Add-Log -Message "`r`nFin de la conversion des fichiers.`r`n"
             })
         
 
@@ -523,7 +553,7 @@ $processButton.Add_Click({
 
 
             $logTextBox.Invoke([Action]{
-                $logTextBox.AppendText("`r`nLa liste des fichiers E2 : $outputXlsx a bien été créé.`r`n")
+                Add-Log -Message "`r`nLa liste des fichiers E2 : $outputXlsx a bien été créé.`r`n" -Color "Blue"
             })
 
 
@@ -542,17 +572,17 @@ $processButton.Add_Click({
 
         # Fonction de suppression des fichiers et dossiers présents dans le dossier de copie
         $deleteButton.Add_Click({
-            $logTextBox.AppendText("`r`nDébut de la suppression des fichiers avec les anciennes extensions.`r`n")
+            Add-Log -Message "`r`nDébut de la suppression des fichiers avec les anciennes extensions.`r`n"
             Get-ChildItem -Path $destinationPath -Recurse -Include *.doc, *.xls, *.ppt | ForEach-Object {
                 try {
                     Remove-Item -Path $_.FullName -Force -Recurse
-                    $logTextBox.AppendText("Elément supprimé : $($_.FullName)`r`n")
+                    Add-Log -Message "Elément supprimé : $($_.FullName)`r`n" -Color "Green"
                 } catch {
-                    $logTextBox.AppendText("Erreur lors de la suppression de l'élément : $($_.FullName)`r`n")
+                    Add-Log -Message "Erreur lors de la suppression de l'élément : $($_.FullName)`r`n" -Color "Red"
                 }
             }
 
-            $logTextBox.AppendText("`r`nFin de la suppression des fichiers avec les anciennes extensions.`r`n")
+            Add-Log -Message "`r`nFin de la suppression des fichiers avec les anciennes extensions.`r`n"
 
         }) #fin de la fonction du bouton delete
 
@@ -578,7 +608,7 @@ $processButton.Add_Click({
 
 
     # Notification de début du programme en arrière plan
-    $logTextBox.AppendText("`r`n`rLe processus de recherche des fichiers a démarré.`r`n`r`n")
+    Add-Log -Message "`r`n`rLe processus de recherche des fichiers a démarré.`r`n`r`n" -Color "Blue"
 })
 
 
